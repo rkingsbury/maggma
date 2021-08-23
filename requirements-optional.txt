@@ -3,4 +3,4 @@ boto3==1.17.17
 hvac==0.10.6
 IPython==7.16.1
 nbformat==5.1.2
-regex==2020.11.13
+regex==2021.8.21

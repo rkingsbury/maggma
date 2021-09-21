@@ -29,9 +29,10 @@ def memorystore():
 @pytest.fixture
 def jsonstore(test_dir):
 
-    files = []
-    for f in ["a.json", "b.json"]:
-        files.append(test_dir / "test_set" / f)
+    # files = []
+    # for f in ["a.json", "b.json"]:
+    #     files.append(test_dir / "test_set" / f)
+    files = test_dir / "test_set" / "a.json"
 
     return JSONStore(files)
 
@@ -270,7 +271,8 @@ def test_groupby(memorystore):
 
 def test_json_store_load(jsonstore, test_dir):
     jsonstore.connect()
-    assert len(list(jsonstore.query())) == 20
+    # assert len(list(jsonstore.query())) == 20
+    assert len(list(jsonstore.query())) == 10
 
     jsonstore = JSONStore(test_dir / "test_set" / "c.json.gz")
     jsonstore.connect()

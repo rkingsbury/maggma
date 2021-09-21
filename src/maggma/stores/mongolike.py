@@ -10,12 +10,13 @@ import yaml
 from itertools import chain, groupby
 from socket import socket
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from pathlib import Path
 
 import mongomock
 from monty.dev import deprecated
 from monty.io import zopen
 from monty.json import MSONable, jsanitize
-from monty.serialization import loadfn
+from monty.serialization import loadfn, dumpfn
 from pydash import get, has, set_
 from pymongo import MongoClient, ReplaceOne, uri_parser
 from pymongo.errors import ConfigurationError, DocumentTooLarge, OperationFailure
@@ -603,31 +604,46 @@ class MemoryStore(MongoStore):
 
 class JSONStore(MemoryStore):
     """
-    A Store for access to a single or multiple JSON files
+    A Store for access to a single JSON file. When connect() is called, this
+    Store reads all the records from the JSON file and loads them into memory.
+    Updated records are written back to disk when the close() method is
+    called.
     """
 
-    def __init__(self, paths: Union[str, List[str]], **kwargs):
+    def __init__(self, path: Union[str, Path], **kwargs):
         """
         Args:
-            paths: paths for json files to turn into a Store
+            paths: path for json file to turn into a Store. If the file does not
+                exist, it will be created on .close()
         """
-        paths = paths if isinstance(paths, (list, tuple)) else [paths]
-        self.paths = paths
+        self.path = path if isinstance(path, Path) else Path(path)
         self.kwargs = kwargs
         super().__init__(collection_name="collection", **kwargs)
 
     def connect(self, force_reset=False):
         """
-        Loads the files into the collection in memory
+        Loads the JSON file contents into memory
         """
         super().connect(force_reset=force_reset)
-        for path in self.paths:
-            with zopen(path) as f:
-                data = f.read()
-                data = data.decode() if isinstance(data, bytes) else data
-                objects = json.loads(data)
-                objects = [objects] if not isinstance(objects, list) else objects
-                self.update(objects)
+        if self.path.exists():
+            objects = loadfn(self.path)
+            objects = [objects] if not isinstance(objects, list) else objects
+            self.update(objects)
+
+            # with zopen(self.path) as f:
+            #     data = f.read()
+            #     data = data.decode() if isinstance(data, bytes) else data
+            #     objects = json.loads(data)
+            #     objects = [objects] if not isinstance(objects, list) else objects
+            #     self.update(objects)
+    
+    def close(self):
+        """
+        Close the Store and write the contents to disk.
+        """
+        store_data = list(self.query())
+        dumpfn(store_data, self.path)
+        super().close()
 
     def __hash__(self):
         return hash((*self.paths, self.last_updated_field))
@@ -642,7 +658,7 @@ class JSONStore(MemoryStore):
         if not isinstance(other, JSONStore):
             return False
 
-        fields = ["paths", "last_updated_field"]
+        fields = ["path", "last_updated_field"]
         return all(getattr(self, f) == getattr(other, f) for f in fields)
 
 

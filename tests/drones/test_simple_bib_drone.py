@@ -3,7 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from maggma.stores import MongoStore
+from maggma.stores import MemoryStore
+from maggma.stores.mongolike import MongoStore
 
 from simple_bib_drone import SimpleBibDrone
 

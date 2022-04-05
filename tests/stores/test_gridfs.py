@@ -1,3 +1,5 @@
+import os
+
 import json
 from datetime import datetime
 
@@ -6,7 +8,8 @@ import numpy.testing.utils as nptu
 import pytest
 
 from maggma.stores import GridFSStore, MongoStore
-from maggma.stores.gridfs import files_collection_fields
+from maggma.stores.gridfs import files_collection_fields, GridFSURIStore
+from pymongo.errors import ConfigurationError
 
 
 @pytest.fixture
@@ -234,6 +237,12 @@ def test_gfs_metadata(gridfsstore):
         assert gridfsstore.last_updated_field in d
 
 
+def test_gridfsstore_from_launchpad_file(lp_file):
+    ms = GridFSStore.from_launchpad_file(lp_file, collection_name="tmp")
+    ms.connect()
+    assert ms.name == "gridfs://localhost/maggma_tests/tmp"
+
+
 def test_searchable_fields(gridfsstore):
 
     tic = datetime(2018, 4, 12, 16)
@@ -262,3 +271,31 @@ def test_additional_metadata(gridfsstore):
 
     # This should only work if the searchable field was put into the index store
     assert set(gridfsstore.distinct("task_id")) == {"mp-0", "mp-1", "mp-2"}
+
+
+@pytest.mark.skipif(
+    "mongodb+srv" not in os.environ.get("MONGODB_SRV_URI", ""),
+    reason="requires special mongodb+srv URI",
+)
+def test_gridfs_uri():
+    uri = os.environ["MONGODB_SRV_URI"]
+    store = GridFSURIStore(uri, database="mp_core", collection_name="xas")
+    store.connect()
+    is_name = store.name is uri
+    # This is try and keep the secret safe
+    assert is_name
+
+
+def test_gridfs_uri_dbname_parse():
+    # test parsing dbname from uri
+    uri_with_db = "mongodb://uuu:xxxx@host:27017/fake_db"
+    store = GridFSURIStore(uri_with_db, "test")
+    assert store.database == "fake_db"
+
+    uri_with_db = "mongodb://uuu:xxxx@host:27017/fake_db"
+    store = GridFSURIStore(uri_with_db, "test", database="fake_db2")
+    assert store.database == "fake_db2"
+
+    uri_with_db = "mongodb://uuu:xxxx@host:27017"
+    with pytest.raises(ConfigurationError):
+        GridFSURIStore(uri_with_db, "test")

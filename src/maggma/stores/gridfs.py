@@ -8,16 +8,17 @@ various utillities
 import copy
 import json
 import zlib
+import yaml
 from datetime import datetime
+from pymongo.errors import ConfigurationError
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import gridfs
-from monty.dev import deprecated
 from monty.json import jsanitize
 from pydash import get, has
-from pymongo import MongoClient
+from pymongo import MongoClient, uri_parser
 
-from maggma.core import Sort, Store
+from maggma.core import Sort, Store, StoreError
 from maggma.stores.mongolike import MongoStore
 
 # https://github.com/mongodb/specifications/
@@ -51,7 +52,9 @@ class GridFSStore(Store):
         password: str = "",
         compression: bool = False,
         ensure_metadata: bool = False,
-        searchable_fields: List[str] = [],
+        searchable_fields: List[str] = None,
+        auth_source: Optional[str] = None,
+        mongoclient_kwargs: Optional[Dict] = None,
         **kwargs,
     ):
         """
@@ -61,12 +64,13 @@ class GridFSStore(Store):
             collection_name: The name of the collection.
                 This is the string portion before the GridFS extensions
             host: hostname for the database
-            port: port to connec to
+            port: port to connect to
             username: username to connect as
             password: password to authenticate as
             compression: compress the data as it goes into GridFS
             ensure_metadata: ensure returned documents have the metadata fields
             searchable_fields: fields to keep in the index store
+            auth_source: The database to authenticate on. Defaults to the database name.
         """
 
         self.database = database
@@ -75,15 +79,41 @@ class GridFSStore(Store):
         self.port = port
         self.username = username
         self.password = password
-        self._collection = None  # type: Any
+        self._coll = None  # type: Any
         self.compression = compression
         self.ensure_metadata = ensure_metadata
-        self.searchable_fields = searchable_fields
+        self.searchable_fields = [] if searchable_fields is None else searchable_fields
         self.kwargs = kwargs
+
+        if auth_source is None:
+            auth_source = self.database
+        self.auth_source = auth_source
+        self.mongoclient_kwargs = mongoclient_kwargs or {}
 
         if "key" not in kwargs:
             kwargs["key"] = "_id"
         super().__init__(**kwargs)
+
+    @classmethod
+    def from_launchpad_file(cls, lp_file, collection_name, **kwargs):
+        """
+        Convenience method to construct a GridFSStore from a launchpad file
+
+        Note: A launchpad file is a special formatted yaml file used in fireworks
+
+        Returns:
+        """
+        with open(lp_file, "r") as f:
+            lp_creds = yaml.load(f, Loader=yaml.FullLoader)
+
+        db_creds = lp_creds.copy()
+        db_creds["database"] = db_creds["name"]
+        for key in list(db_creds.keys()):
+            if key not in ["database", "host", "port", "username", "password"]:
+                db_creds.pop(key)
+        db_creds["collection_name"] = collection_name
+
+        return cls(**db_creds, **kwargs)
 
     @property
     def name(self) -> str:
@@ -96,23 +126,34 @@ class GridFSStore(Store):
         """
         Connect to the source data
         """
-        conn = MongoClient(self.host, self.port)
-        if not self._collection or force_reset:
+        conn = (
+            MongoClient(
+                host=self.host,
+                port=self.port,
+                username=self.username,
+                password=self.password,
+                authSource=self.auth_source,
+                **self.mongoclient_kwargs,
+            )
+            if self.username != ""
+            else MongoClient(self.host, self.port, **self.mongoclient_kwargs)
+        )
+        if not self._coll or force_reset:
             db = conn[self.database]
-            if self.username != "":
-                db.authenticate(self.username, self.password)
 
-            self._collection = gridfs.GridFS(db, self.collection_name)
+            self._coll = gridfs.GridFS(db, self.collection_name)
             self._files_collection = db["{}.files".format(self.collection_name)]
             self._files_store = MongoStore.from_collection(self._files_collection)
             self._files_store.last_updated_field = f"metadata.{self.last_updated_field}"
             self._files_store.key = self.key
             self._chunks_collection = db["{}.chunks".format(self.collection_name)]
 
-    @property  # type: ignore
-    @deprecated(message="This will be removed in the future")
-    def collection(self):
-        return self._collection
+    @property
+    def _collection(self):
+        """Property referring to underlying pymongo collection"""
+        if self._coll is None:
+            raise StoreError("Must connect Mongo-like store before attemping to use it")
+        return self._coll
 
     @property
     def last_updated(self) -> datetime:
@@ -408,3 +449,71 @@ class GridFSStore(Store):
 
         fields = ["database", "collection_name", "host", "port"]
         return all(getattr(self, f) == getattr(other, f) for f in fields)
+
+
+class GridFSURIStore(GridFSStore):
+    """
+    A Store for GridFS backend, with connection via a mongo URI string.
+
+    This is expected to be a special mongodb+srv:// URIs that include client parameters
+    via TXT records
+    """
+
+    def __init__(
+        self,
+        uri: str,
+        collection_name: str,
+        database: str = None,
+        compression: bool = False,
+        ensure_metadata: bool = False,
+        searchable_fields: List[str] = None,
+        **kwargs,
+    ):
+        """
+        Initializes a GrdiFS Store for binary data
+        Args:
+            uri: MongoDB+SRV URI
+            database: database to connect to
+            collection_name: The collection name
+            compression: compress the data as it goes into GridFS
+            ensure_metadata: ensure returned documents have the metadata fields
+            searchable_fields: fields to keep in the index store
+        """
+
+        self.uri = uri
+
+        # parse the dbname from the uri
+        if database is None:
+            d_uri = uri_parser.parse_uri(uri)
+            if d_uri["database"] is None:
+                raise ConfigurationError(
+                    "If database name is not supplied, a database must be set in the uri"
+                )
+            self.database = d_uri["database"]
+        else:
+            self.database = database
+
+        self.collection_name = collection_name
+        self._coll = None  # type: Any
+        self.compression = compression
+        self.ensure_metadata = ensure_metadata
+        self.searchable_fields = [] if searchable_fields is None else searchable_fields
+        self.kwargs = kwargs
+
+        if "key" not in kwargs:
+            kwargs["key"] = "_id"
+        super(GridFSStore, self).__init__(**kwargs)  # lgtm
+
+    def connect(self, force_reset: bool = False):
+        """
+        Connect to the source data
+        """
+        if not self._coll or force_reset:  # pragma: no cover
+            conn = MongoClient(self.uri, **self.mongoclient_kwargs)
+            db = conn[self.database]
+            self._coll = gridfs.GridFS(db, self.collection_name)
+            self._files_collection = db["{}.files".format(self.collection_name)]
+            self._files_store = MongoStore.from_collection(self._files_collection)
+            self._files_store.last_updated_field = f"metadata.{self.last_updated_field}"
+            self._files_store.key = self.key
+            self._chunks_collection = db["{}.chunks".format(self.collection_name)]

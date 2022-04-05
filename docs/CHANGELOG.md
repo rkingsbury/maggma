@@ -1,5 +1,179 @@
 # Changelog
 
+## [v0.44.1](https://github.com/materialsproject/maggma/tree/v0.44.1) (2022-03-08)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.44.0...v0.44.1)
+
+**Merged pull requests:**
+
+- added localhost test for MongoURIStore [\#595](https://github.com/materialsproject/maggma/pull/595) ([jmmshn](https://github.com/jmmshn))
+
+## [v0.44.0](https://github.com/materialsproject/maggma/tree/v0.44.0) (2022-03-07)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.43.0...v0.44.0)
+
+## [v0.43.0](https://github.com/materialsproject/maggma/tree/v0.43.0) (2022-03-07)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.42.0...v0.43.0)
+
+## [v0.42.0](https://github.com/materialsproject/maggma/tree/v0.42.0) (2022-03-07)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.41.1...v0.42.0)
+
+**Merged pull requests:**
+
+- Remove python3.6 support and fix tests [\#579](https://github.com/materialsproject/maggma/pull/579) ([munrojm](https://github.com/munrojm))
+- typo [\#576](https://github.com/materialsproject/maggma/pull/576) ([jmmshn](https://github.com/jmmshn))
+
+## [v0.41.1](https://github.com/materialsproject/maggma/tree/v0.41.1) (2022-03-05)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.41.0...v0.41.1)
+
+**Merged pull requests:**
+
+- mongoclient\_kwargs [\#575](https://github.com/materialsproject/maggma/pull/575) ([jmmshn](https://github.com/jmmshn))
+- change cleint -\> resource in aws tests [\#574](https://github.com/materialsproject/maggma/pull/574) ([jmmshn](https://github.com/jmmshn))
+
+## [v0.41.0](https://github.com/materialsproject/maggma/tree/v0.41.0) (2022-02-15)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.40.0...v0.41.0)
+
+**Merged pull requests:**
+
+- Add header processing abilities to certain `Resource` classes [\#569](https://github.com/materialsproject/maggma/pull/569) ([munrojm](https://github.com/munrojm))
+
+## [v0.40.0](https://github.com/materialsproject/maggma/tree/v0.40.0) (2022-02-10)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.39.1...v0.40.0)
+
+**Merged pull requests:**
+
+- Add authsource option for mongo and gridfs stores [\#567](https://github.com/materialsproject/maggma/pull/567) ([utf](https://github.com/utf))
+
+## [v0.39.1](https://github.com/materialsproject/maggma/tree/v0.39.1) (2022-01-27)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.39.0...v0.39.1)
+
+**Fixed bugs:**
+
+- Single import-dependence on pynng causes M1 Mac install error [\#528](https://github.com/materialsproject/maggma/issues/528)
+
+**Merged pull requests:**
+
+- Add boto3 to required packages [\#544](https://github.com/materialsproject/maggma/pull/544) ([munrojm](https://github.com/munrojm))
+
+## [v0.39.0](https://github.com/materialsproject/maggma/tree/v0.39.0) (2022-01-26)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.38.1...v0.39.0)
+
+**Merged pull requests:**
+
+- Replace `pynng` functionality with `pyzmq` [\#543](https://github.com/materialsproject/maggma/pull/543) ([munrojm](https://github.com/munrojm))
+- Encode `_` as `--` in metadata when using `S3Store.write_doc_to_s3` [\#532](https://github.com/materialsproject/maggma/pull/532) ([mkhorton](https://github.com/mkhorton))
+
+## [v0.38.1](https://github.com/materialsproject/maggma/tree/v0.38.1) (2021-12-10)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.38.0...v0.38.1)
+
+**Merged pull requests:**
+
+- Add ability to input index hints to count method [\#524](https://github.com/materialsproject/maggma/pull/524) ([munrojm](https://github.com/munrojm))
+
+## [v0.38.0](https://github.com/materialsproject/maggma/tree/v0.38.0) (2021-12-09)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.37.0...v0.38.0)
+
+**Merged pull requests:**
+
+- Fix issue with `close` and `MongoStore` and update `_collection` attribute [\#523](https://github.com/materialsproject/maggma/pull/523) ([munrojm](https://github.com/munrojm))
+
+## [v0.37.0](https://github.com/materialsproject/maggma/tree/v0.37.0) (2021-12-07)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.36.0...v0.37.0)
+
+**Merged pull requests:**
+
+- Revert broken MongoStore auth testing [\#522](https://github.com/materialsproject/maggma/pull/522) ([munrojm](https://github.com/munrojm))
+- Fix authentication for `MongoStore` to work with `pymongo==4.0` [\#521](https://github.com/materialsproject/maggma/pull/521) ([munrojm](https://github.com/munrojm))
+
+## [v0.36.0](https://github.com/materialsproject/maggma/tree/v0.36.0) (2021-12-06)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.34.0...v0.36.0)
+
+**Merged pull requests:**
+
+- Added on-disk MongoDB compatible MontyStore [\#514](https://github.com/materialsproject/maggma/pull/514) ([utf](https://github.com/utf))
+
+## [v0.34.0](https://github.com/materialsproject/maggma/tree/v0.34.0) (2021-12-01)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.35.0...v0.34.0)
+
+## [v0.35.0](https://github.com/materialsproject/maggma/tree/v0.35.0) (2021-12-01)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.33.2...v0.35.0)
+
+**Merged pull requests:**
+
+- Changes to accommodate new pymongo  [\#517](https://github.com/materialsproject/maggma/pull/517) ([munrojm](https://github.com/munrojm))
+
+## [v0.33.2](https://github.com/materialsproject/maggma/tree/v0.33.2) (2021-12-01)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.33.1...v0.33.2)
+
+**Merged pull requests:**
+
+- Patch mongo store connect methods [\#516](https://github.com/materialsproject/maggma/pull/516) ([munrojm](https://github.com/munrojm))
+
+## [v0.33.1](https://github.com/materialsproject/maggma/tree/v0.33.1) (2021-12-01)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.33.0...v0.33.1)
+
+**Merged pull requests:**
+
+- Patch memory store connect method [\#515](https://github.com/materialsproject/maggma/pull/515) ([munrojm](https://github.com/munrojm))
+
+## [v0.33.0](https://github.com/materialsproject/maggma/tree/v0.33.0) (2021-11-30)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.32.3...v0.33.0)
+
+**Merged pull requests:**
+
+- MongoDB hint support [\#513](https://github.com/materialsproject/maggma/pull/513) ([munrojm](https://github.com/munrojm))
+
+## [v0.32.3](https://github.com/materialsproject/maggma/tree/v0.32.3) (2021-11-25)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.32.2...v0.32.3)
+
+**Merged pull requests:**
+
+- Added option for writable JSONStores \(for single JSON files only\). [\#507](https://github.com/materialsproject/maggma/pull/507) ([davidwaroquiers](https://github.com/davidwaroquiers))
+
+## [v0.32.2](https://github.com/materialsproject/maggma/tree/v0.32.2) (2021-11-23)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.32.1...v0.32.2)
+
+**Merged pull requests:**
+
+- Alter sorting query operator to take comma delimited string [\#510](https://github.com/materialsproject/maggma/pull/510) ([munrojm](https://github.com/munrojm))
+
+## [v0.32.1](https://github.com/materialsproject/maggma/tree/v0.32.1) (2021-11-10)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.32.0...v0.32.1)
+
+**Merged pull requests:**
+
+- Default to yaml full loader to fix tests [\#505](https://github.com/materialsproject/maggma/pull/505) ([munrojm](https://github.com/munrojm))
+- Add GridFSURIStore with support for URI connections [\#504](https://github.com/materialsproject/maggma/pull/504) ([utf](https://github.com/utf))
+
+## [v0.32.0](https://github.com/materialsproject/maggma/tree/v0.32.0) (2021-10-11)
+
+[Full Changelog](https://github.com/materialsproject/maggma/compare/v0.31.0...v0.32.0)
+
+**Merged pull requests:**
+
+- Update sorting query operator to take multiple fields [\#500](https://github.com/materialsproject/maggma/pull/500) ([munrojm](https://github.com/munrojm))
+- Change to S3Store serialization behavior in update\(\) and other Mongolike Store changes [\#493](https://github.com/materialsproject/maggma/pull/493) ([sivonxay](https://github.com/sivonxay))
+
 ## [v0.31.0](https://github.com/materialsproject/maggma/tree/v0.31.0) (2021-08-14)
 
 [Full Changelog](https://github.com/materialsproject/maggma/compare/v0.30.4...v0.31.0)

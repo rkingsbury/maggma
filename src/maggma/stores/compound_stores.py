@@ -3,11 +3,10 @@ from datetime import datetime
 from itertools import groupby
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
-from monty.dev import deprecated
 from pydash import set_
 from pymongo import MongoClient
 
-from maggma.core import Sort, Store
+from maggma.core import Sort, Store, StoreError
 from maggma.stores.mongolike import MongoStore
 
 
@@ -27,6 +26,7 @@ class JointStore(Store):
         password: str = "",
         main: Optional[str] = None,
         merge_at_root: bool = False,
+        mongoclient_kwargs: Optional[Dict] = None,
         **kwargs,
     ):
         """
@@ -48,10 +48,12 @@ class JointStore(Store):
         self.port = port
         self.username = username
         self.password = password
-        self._collection = None  # type: Any
+        self._coll = None  # type: Any
         self.main = main or collection_names[0]
         self.merge_at_root = merge_at_root
+        self.mongoclient_kwargs = mongoclient_kwargs or {}
         self.kwargs = kwargs
+
         super(JointStore, self).__init__(**kwargs)
 
     @property
@@ -70,11 +72,19 @@ class JointStore(Store):
         Args:
             force_reset: whether to forcibly reset the connection
         """
-        conn = MongoClient(self.host, self.port)
+        conn = (
+            MongoClient(
+                host=self.host,
+                port=self.port,
+                username=self.username,
+                password=self.password,
+                **self.mongoclient_kwargs,
+            )
+            if self.username != ""
+            else MongoClient(self.host, self.port, **self.mongoclient_kwargs)
+        )
         db = conn[self.database]
-        if self.username != "":
-            db.authenticate(self.username, self.password)
-        self._collection = db[self.main]
+        self._coll = db[self.main]
         self._has_merge_objects = (
             self._collection.database.client.server_info()["version"] > "3.6"
         )
@@ -85,13 +95,12 @@ class JointStore(Store):
         """
         self._collection.database.client.close()
 
-    @property  # type: ignore
-    @deprecated("This will be removed in the future")
-    def collection(self):
-        """
-        The root collection for this JointStore
-        """
-        return self._collection
+    @property
+    def _collection(self):
+        """Property referring to the root pymongo collection"""
+        if self._coll is None:
+            raise StoreError("Must connect Mongo-like store before attemping to use it")
+        return self._coll
 
     @property
     def nonmain_names(self) -> List:
@@ -357,9 +366,8 @@ class ConcatStore(Store):
         for store in self.stores:
             store.close()
 
-    @property  # type: ignore
-    @deprecated
-    def collection(self):
+    @property
+    def _collection(self):
         raise NotImplementedError("No collection property for ConcatStore")
 
     @property

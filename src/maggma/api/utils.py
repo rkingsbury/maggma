@@ -12,12 +12,14 @@ from typing_extensions import Literal
 if sys.version_info >= (3, 8):
     from typing import get_args
 else:
-    from typing_extensions import get_args
+    from typing_extensions import get_args  # pragma: no cover
 
 
 QUERY_PARAMS = ["criteria", "properties", "skip", "limit"]
 STORE_PARAMS = Dict[
-    Literal["criteria", "properties", "sort", "skip", "limit", "request", "pipeline"],
+    Literal[
+        "criteria", "properties", "sort", "skip", "limit", "request", "pipeline", "hint"
+    ],
     Any,
 ]
 

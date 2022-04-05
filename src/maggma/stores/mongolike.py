@@ -6,13 +6,15 @@ various utilities
 """
 
 import json
+from pathlib import Path
+
 import yaml
 from itertools import chain, groupby
 from socket import socket
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import mongomock
-from monty.dev import deprecated
+from monty.dev import requires
 from monty.io import zopen
 from monty.json import MSONable, jsanitize
 from monty.serialization import loadfn
@@ -23,6 +25,11 @@ from sshtunnel import SSHTunnelForwarder
 
 from maggma.core import Sort, Store, StoreError
 from maggma.utils import confirm_field_index
+
+try:
+    import montydb
+except ImportError:
+    montydb = None
 
 
 class SSHTunnel(MSONable):
@@ -114,6 +121,8 @@ class MongoStore(Store):
         password: str = "",
         ssh_tunnel: Optional[SSHTunnel] = None,
         safe_update: bool = False,
+        auth_source: Optional[str] = None,
+        mongoclient_kwargs: Optional[Dict] = None,
         **kwargs,
     ):
         """
@@ -125,6 +134,7 @@ class MongoStore(Store):
             username: Username for the collection
             password: Password to connect with
             safe_update: fail gracefully on DocumentTooLarge errors on update
+            auth_source: The database to authenticate on. Defaults to the database name.
         """
         self.database = database
         self.collection_name = collection_name
@@ -134,8 +144,14 @@ class MongoStore(Store):
         self.password = password
         self.ssh_tunnel = ssh_tunnel
         self.safe_update = safe_update
-        self._collection = None  # type: Any
+        self._coll = None  # type: Any
         self.kwargs = kwargs
+
+        if auth_source is None:
+            auth_source = self.database
+        self.auth_source = auth_source
+        self.mongoclient_kwargs = mongoclient_kwargs or {}
+
         super().__init__(**kwargs)
 
     @property
@@ -149,24 +165,35 @@ class MongoStore(Store):
         """
         Connect to the source data
         """
-        if not self._collection or force_reset:
+        if self._coll is None or force_reset:
             if self.ssh_tunnel is None:
-                conn = MongoClient(self.host, self.port)
+                host = self.host
+                port = self.port
             else:
                 self.ssh_tunnel.start()
                 host, port = self.ssh_tunnel.local_address
-                conn = MongoClient(host=host, port=port)
+
+            conn = (
+                MongoClient(
+                    host=host,
+                    port=port,
+                    username=self.username,
+                    password=self.password,
+                    authSource=self.auth_source,
+                    **self.mongoclient_kwargs,
+                )
+                if self.username != ""
+                else MongoClient(host, port, **self.mongoclient_kwargs)
+            )
             db = conn[self.database]
-            if self.username != "":
-                db.authenticate(self.username, self.password)
-            self._collection = db[self.collection_name]
+            self._coll = db[self.collection_name]
 
     def __hash__(self) -> int:
         """Hash for MongoStore"""
         return hash((self.database, self.collection_name, self.last_updated_field))
 
     @classmethod
-    def from_db_file(cls, filename: str):
+    def from_db_file(cls, filename: str, **kwargs):
         """
         Convenience method to construct MongoStore from db_file
         from old QueryEngine format
@@ -179,7 +206,7 @@ class MongoStore(Store):
         return cls(**kwargs)
 
     @classmethod
-    def from_launchpad_file(cls, lp_file, collection_name):
+    def from_launchpad_file(cls, lp_file, collection_name, **kwargs):
         """
         Convenience method to construct MongoStore from a launchpad file
 
@@ -187,17 +214,17 @@ class MongoStore(Store):
 
         Returns:
         """
-        with open(lp_file, 'r') as f:
-            lp_creds = yaml.load(f, Loader=None)
+        with open(lp_file, "r") as f:
+            lp_creds = yaml.load(f, Loader=yaml.FullLoader)
 
         db_creds = lp_creds.copy()
-        db_creds['database'] = db_creds['name']
+        db_creds["database"] = db_creds["name"]
         for key in list(db_creds.keys()):
-            if key not in ['database', 'host', 'port', 'username', 'password']:
+            if key not in ["database", "host", "port", "username", "password"]:
                 db_creds.pop(key)
-        db_creds['collection_name'] = collection_name
+        db_creds["collection_name"] = collection_name
 
-        return cls(**db_creds)
+        return cls(**db_creds, **kwargs)
 
     def distinct(
         self, field: str, criteria: Optional[Dict] = None, all_exist: bool = False
@@ -290,33 +317,52 @@ class MongoStore(Store):
         db_name = collection.database.name
 
         store = cls(db_name, coll_name)
-        store._collection = collection
+        store._coll = collection
         return store
 
-    @property  # type: ignore
-    @deprecated(message="This will be removed in the future")
-    def collection(self):
+    @property
+    def _collection(self):
         """Property referring to underlying pymongo collection"""
-        if self._collection is None:
+        if self._coll is None:
             raise StoreError("Must connect Mongo-like store before attemping to use it")
-        return self._collection
+        return self._coll
 
-    def count(self, criteria: Optional[Dict] = None) -> int:
+    def count(
+        self,
+        criteria: Optional[Dict] = None,
+        hint: Optional[Dict[str, Union[Sort, int]]] = None,
+    ) -> int:
         """
         Counts the number of documents matching the query criteria
 
         Args:
             criteria: PyMongo filter for documents to count in
+            hint: Dictionary of indexes to use as hints for query optimizer.
+                Keys are field names and values are 1 for ascending or -1 for descending.
         """
 
         criteria = criteria if criteria else {}
-        return self._collection.find(filter=criteria).count()
 
-    def query(
+        hint_list = (
+            [
+                (k, Sort(v).value) if isinstance(v, int) else (k, v.value)
+                for k, v in hint.items()
+            ]
+            if hint
+            else None
+        )
+
+        if hint_list is not None:  # pragma: no cover
+            return self._collection.count_documents(filter=criteria, hint=hint_list)
+
+        return self._collection.count_documents(filter=criteria)
+
+    def query(  # type: ignore
         self,
         criteria: Optional[Dict] = None,
         properties: Union[Dict, List, None] = None,
         sort: Optional[Dict[str, Union[Sort, int]]] = None,
+        hint: Optional[Dict[str, Union[Sort, int]]] = None,
         skip: int = 0,
         limit: int = 0,
     ) -> Iterator[Dict]:
@@ -328,6 +374,8 @@ class MongoStore(Store):
             properties: properties to return in grouped documents
             sort: Dictionary of sort order for fields. Keys are field names and
                 values are 1 for ascending or -1 for descending.
+            hint: Dictionary of indexes to use as hints for query optimizer.
+                Keys are field names and values are 1 for ascending or -1 for descending.
             skip: number documents to skip
             limit: limit on total number of documents returned
         """
@@ -343,12 +391,22 @@ class MongoStore(Store):
             else None
         )
 
+        hint_list = (
+            [
+                (k, Sort(v).value) if isinstance(v, int) else (k, v.value)
+                for k, v in hint.items()
+            ]
+            if hint
+            else None
+        )
+
         for d in self._collection.find(
             filter=criteria,
             projection=properties,
             skip=skip,
             limit=limit,
             sort=sort_list,
+            hint=hint_list,
         ):
             yield d
 
@@ -440,6 +498,7 @@ class MongoStore(Store):
     def close(self):
         """Close up all collections"""
         self._collection.database.client.close()
+        self._coll = None
         if self.ssh_tunnel is not None:
             self.ssh_tunnel.stop()
 
@@ -468,6 +527,7 @@ class MongoURIStore(MongoStore):
         collection_name: str,
         database: str = None,
         ssh_tunnel: Optional[SSHTunnel] = None,
+        mongoclient_kwargs: Optional[Dict] = None,
         **kwargs,
     ):
         """
@@ -478,6 +538,7 @@ class MongoURIStore(MongoStore):
         """
         self.uri = uri
         self.ssh_tunnel = ssh_tunnel
+        self.mongoclient_kwargs = mongoclient_kwargs or {}
 
         # parse the dbname from the uri
         if database is None:
@@ -492,7 +553,7 @@ class MongoURIStore(MongoStore):
 
         self.collection_name = collection_name
         self.kwargs = kwargs
-        self._collection = None
+        self._coll = None
         super(MongoStore, self).__init__(**kwargs)  # lgtm
 
     @property
@@ -507,10 +568,10 @@ class MongoURIStore(MongoStore):
         """
         Connect to the source data
         """
-        if not self._collection or force_reset:
-            conn = MongoClient(self.uri)
+        if self._coll is None or force_reset:  # pragma: no cover
+            conn = MongoClient(self.uri, **self.mongoclient_kwargs)
             db = conn[self.database]
-            self._collection = db[self.collection_name]
+            self._coll = db[self.collection_name]
 
 
 class MemoryStore(MongoStore):
@@ -526,8 +587,7 @@ class MemoryStore(MongoStore):
             collection_name: name for the collection in memory
         """
         self.collection_name = collection_name
-        self._collection = None
-        self.ssh_tunnel = None  # This is to fix issues with the tunnel on close
+        self._coll = None
         self.kwargs = kwargs
         super(MongoStore, self).__init__(**kwargs)  # noqa
 
@@ -536,8 +596,12 @@ class MemoryStore(MongoStore):
         Connect to the source data
         """
 
-        if not self._collection or force_reset:
-            self._collection = mongomock.MongoClient().db[self.name]
+        if self._coll is None or force_reset:
+            self._coll = mongomock.MongoClient().db[self.name]
+
+    def close(self):
+        """Close up all collections"""
+        self._coll.database.client.close()
 
     @property
     def name(self):
@@ -606,13 +670,26 @@ class JSONStore(MemoryStore):
     A Store for access to a single or multiple JSON files
     """
 
-    def __init__(self, paths: Union[str, List[str]], **kwargs):
+    def __init__(self, paths: Union[str, List[str]], file_writable=False, **kwargs):
         """
         Args:
             paths: paths for json files to turn into a Store
+            file_writable: whether this JSONStore is "file-writable". When a JSONStore
+                is "file-writable", the json file will be automatically updated
+                everytime a write-like operation is performed. Note that only
+                JSONStore with a single JSON file is compatible with file_writable
+                True. Note also that when file_writable is False, the JSONStore
+                can still apply MongoDB-like writable operations (e.g. an update)
+                as it behaves like a MemoryStore, but it will not write those changes
+                to the file.
         """
         paths = paths if isinstance(paths, (list, tuple)) else [paths]
         self.paths = paths
+        if file_writable and len(paths) > 1:
+            raise RuntimeError(
+                "Cannot instantiate file-writable JSONStore with multiple JSON files."
+            )
+        self.file_writable = file_writable
         self.kwargs = kwargs
         super().__init__(collection_name="collection", **kwargs)
 
@@ -629,6 +706,46 @@ class JSONStore(MemoryStore):
                 objects = [objects] if not isinstance(objects, list) else objects
                 self.update(objects)
 
+    def update(self, docs: Union[List[Dict], Dict], key: Union[List, str, None] = None):
+        """
+        Update documents into the Store.
+
+        For a file-writable JSONStore, the json file is updated.
+
+        Args:
+            docs: the document or list of documents to update
+            key: field name(s) to determine uniqueness for a
+                 document, can be a list of multiple fields,
+                 a single field, or None if the Store's key
+                 field is to be used
+        """
+        super().update(docs=docs, key=key)
+        if self.file_writable:
+            self.update_json_file()
+
+    def remove_docs(self, criteria: Dict):
+        """
+        Remove docs matching the query dictionary.
+
+        For a file-writable JSONStore, the json file is updated.
+
+        Args:
+            criteria: query dictionary to match
+        """
+        super().remove_docs(criteria=criteria)
+        if self.file_writable:
+            self.update_json_file()
+
+    def update_json_file(self):
+        """
+        Updates the json file when a write-like operation is performed.
+        """
+        with zopen(self.paths[0], "w") as f:
+            data = [d for d in self.query()]
+            for d in data:
+                d.pop("_id")
+            json.dump(data, f)
+
     def __hash__(self):
         return hash((*self.paths, self.last_updated_field))
 
@@ -644,6 +761,126 @@ class JSONStore(MemoryStore):
 
         fields = ["paths", "last_updated_field"]
         return all(getattr(self, f) == getattr(other, f) for f in fields)
+
+
+@requires(
+    montydb,
+    "MontyStore requires MontyDB to be installed. See the MontyDB repository for more "
+    "information: https://github.com/davidlatwe/montydb",
+)
+class MontyStore(MemoryStore):
+    """
+    A MongoDB compatible store that uses on disk files for storage.
+
+    This is handled under the hood using MontyDB. A number of on-disk storage options
+    are available but MontyDB provides a mongo style interface for all options. The
+    options include:
+
+    - sqlite: Uses an sqlite database to store documents.
+    - lightning: Uses Lightning Memory-Mapped Database (LMDB) for storage. This can
+      provide fast read and write times but requires lmdb to be installed (in most cases
+      this can be achieved using ``pip install lmdb``).
+    - flatfile: Uses a system of flat json files. This is not recommended as multiple
+      simultaneous connections to the store will not work correctly.
+
+    See the MontyDB repository for more information: https://github.com/davidlatwe/montydb
+    """
+
+    def __init__(
+        self,
+        collection_name,
+        database_path: str = None,
+        database_name: str = "db",
+        storage: str = "sqlite",
+        storage_kwargs: Optional[dict] = None,
+        client_kwargs: Optional[dict] = None,
+        **kwargs,
+    ):
+        """
+        Initializes the Monty Store.
+
+        Args:
+            collection_name: Name for the collection.
+            database_path: Path to on-disk database files. If None, the current working
+                directory will be used.
+            database_name: The database name.
+            storage: The storage type. Options include "sqlite", "lightning", "flatfile".
+            storage_kwargs: Keyword arguments passed to ``montydb.set_storage``.
+            client_kwargs: Keyword arguments passed to the ``montydb.MontyClient``
+                constructor.
+            **kwargs: Additional keyword arguments passed to the Store constructor.
+        """
+        if database_path is None:
+            database_path = str(Path.cwd())
+
+        self.database_path = database_path
+        self.database_name = database_name
+        self.collection_name = collection_name
+        self._coll = None
+        self.ssh_tunnel = None  # This is to fix issues with the tunnel on close
+        self.kwargs = kwargs
+        self.storage = storage
+        self.storage_kwargs = storage_kwargs or {
+            "use_bson": True,
+            "monty_version": "4.0",
+        }
+        self.client_kwargs = client_kwargs or {}
+        super(MongoStore, self).__init__(**kwargs)  # noqa
+
+    def connect(self, force_reset: bool = False):
+        """
+        Connect to the database store.
+
+        Args:
+            force_reset: Force connection reset.
+        """
+        from montydb import set_storage, MontyClient
+
+        set_storage(self.database_path, storage=self.storage, **self.storage_kwargs)
+        client = MontyClient(self.database_path, **self.client_kwargs)
+        if not self._coll or force_reset:
+            self._coll = client["db"][self.collection_name]
+
+    @property
+    def name(self) -> str:
+        """Return a string representing this data source."""
+        return f"monty://{self.database_path}/{self.database}/{self.collection_name}"
+
+    def update(self, docs: Union[List[Dict], Dict], key: Union[List, str, None] = None):
+        """
+        Update documents into the Store.
+
+        Args:
+            docs: The document or list of documents to update.
+            key: Field name(s) to determine uniqueness for a document, can be a list of
+                multiple fields, a single field, or None if the Store's key field is to be
+                used.
+        """
+
+        if not isinstance(docs, list):
+            docs = [docs]
+
+        for d in docs:
+            d = jsanitize(d, allow_bson=True)
+
+            # document-level validation is optional
+            validates = True
+            if self.validator:
+                validates = self.validator.is_valid(d)
+                if not validates:
+                    if self.validator.strict:
+                        raise ValueError(self.validator.validation_errors(d))
+                    else:
+                        self.logger.error(self.validator.validation_errors(d))
+
+            if validates:
+                key = key or self.key
+                if isinstance(key, list):
+                    search_doc = {k: d[k] for k in key}
+                else:
+                    search_doc = {key: d[key]}
+
+                self._collection.replace_one(search_doc, d, upsert=True)
 
 
 def _find_free_port(address="0.0.0.0"):

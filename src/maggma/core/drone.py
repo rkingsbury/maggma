@@ -3,11 +3,11 @@ import os
 from abc import abstractmethod
 from datetime import datetime
 from pathlib import Path, PosixPath
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Any
 
 from pydantic import BaseModel, Field
 
-from maggma.core import Builder
+from maggma.core import Builder, Store
 
 
 class Document(BaseModel):
@@ -59,10 +59,11 @@ class RecordIdentifier(BaseModel):
             hash of the list of documents passed in
         """
         digest = hashlib.md5()
+        block_size = 128 * digest.block_size
         for doc in self.documents:
             digest.update(doc.name.encode())
             with open(doc.path.as_posix(), "rb") as file:
-                buf = file.read()
+                buf = file.read(block_size)
                 digest.update(buf)
         return str(digest.hexdigest())
 
@@ -79,56 +80,24 @@ class Drone(Builder):
      and example implementation is available in tests/builders/test_simple_bibdrone.py
     """
 
-    def __init__(self, store, path: Path):
-        self.store = store
+    def __init__(self, path: Path, target: Store, chunk_size=1):
+        if not isinstance(path, Path):
+            path = Path(path)
         self.path = path
-        super().__init__(sources=[], targets=store)
-
-    @abstractmethod
-    def compute_record_identifier_key(self, doc: Document) -> str:
-        """
-        Compute the RecordIdentifier key that this document correspond to
-
-        Args:
-            doc: document which the record identifier key will be inferred from
-
-        Returns:
-            RecordIdentifiierKey
-        """
-        raise NotImplementedError
+        self.target = target
+        super().__init__(sources=[], targets=target, chunk_size=chunk_size)
 
     @abstractmethod
     def read(self, path: Path) -> List[RecordIdentifier]:
         """
-        Given a folder path to a data folder, read all the files, and return a dictionary
-        that maps each RecordKey -> [RecordIdentifier]
-
-        ** Note: require user to implement the function computeRecordIdentifierKey
+        Given a folder path to a data folder, read all the files, and return list
+        of RecordIdentifier
 
         Args:
-            path: Path object that indicate a path to a data folder
+            path: Path object that indicates a path to a data folder
 
         Returns:
             List of Record Identifiers
-        """
-        pass
-
-    @abstractmethod
-    def compute_data(self, recordID: RecordIdentifier) -> Dict:
-        """
-        User can specify what raw data they want to save from the Documents that this recordID refers to
-
-        Args:
-            recordID: recordID that needs to be re-saved
-
-        Returns:
-            Dictionary of NAME_OF_DATA -> DATA
-                        ex:
-                            for a recordID refering to 1,
-                            {
-                                "citation": cite.bibtex ,
-                                "text": data.txt
-                            }
         """
         pass
 
@@ -144,15 +113,15 @@ class Drone(Builder):
         Returns:
             List of recordIdentifiers representing data that needs to be updated
         """
-        cursor = self.store.query(
+        cursor = self.target.query(
             criteria={
-                "record_key": {"$in": [r.record_key for r in record_identifiers]}
+                self.target.key: {"$in": [r.record_key for r in record_identifiers]}
             },
-            properties=["record_key", "state_hash", "last_updated"],
+            properties=[self.target.key, "state_hash", "last_updated"],
         )
 
         not_exists = object()
-        db_record_log = {doc["record_key"]: doc["state_hash"] for doc in cursor}
+        db_record_log = {doc[self.target.key]: doc["state_hash"] for doc in cursor}
         to_update_list = [
             recordID.state_hash != db_record_log.get(recordID.record_key, not_exists)
             for recordID in record_identifiers
@@ -163,21 +132,6 @@ class Drone(Builder):
             if to_update
         ]
 
-    def assimilate(self, path: Path) -> List[RecordIdentifier]:
-        """
-        Function mainly for debugging purpose. It will
-            1. read file in the path specified
-            2. convert them into recordIdentifier
-            3. return the converted recordIdentifiers
-        Args:
-            path: path in which files are read
-
-        Returns:
-            list of record Identifiers
-        """
-        record_identifiers: List[RecordIdentifier] = self.read(path=path)
-        return record_identifiers
-
     def get_items(self) -> Iterable:
         """
         Read from the path that was given, compare against database files to find recordIDs that needs to be updated
@@ -186,7 +140,7 @@ class Drone(Builder):
             RecordIdentifiers that needs to be updated
         """
         self.logger.debug(
-            "Starting get_items in {} Builder".format(self.__class__.__name__)
+            "Starting get_items in {} Drone".format(self.__class__.__name__)
         )
         record_identifiers: List[RecordIdentifier] = self.read(path=self.path)
         records_to_update = self.should_update_records(record_identifiers)
@@ -205,19 +159,20 @@ class Drone(Builder):
         """
         if len(items) > 0:
             self.logger.debug("Updating {} items".format(len(items)))
-            self.store.update(items)
+            self.target.update(items)
         else:
             self.logger.debug("There are no items to update")
 
-    def process_item(self, item: RecordIdentifier) -> Dict:  # type: ignore
+    def process_item(self, item: RecordIdentifier) -> Any:  # type: ignore
         """
-        compute the item to update
+        Process an item (i.e., a RecordIdentifier).
 
-        Args:
-            item: item to update
+        Default behavior is to return the item.
+
+        Arguments:
+            item:
 
         Returns:
-            result from expanding the item
+           A processed item.
         """
-
-        return {**self.compute_data(recordID=item), **item.dict()}
+        return item

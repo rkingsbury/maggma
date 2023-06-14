@@ -12,8 +12,7 @@ import pytest
 from pymongo.errors import ConfigurationError, DocumentTooLarge, OperationFailure
 
 from maggma.core import StoreError
-from maggma.stores import JSONStore, MemoryStore, MongoStore, MongoURIStore
-from maggma.stores.mongolike import MontyStore
+from maggma.stores import JSONStore, MemoryStore, MongoStore, MongoURIStore, MontyStore
 from maggma.validators import JSONSchemaValidator
 
 

@@ -11,7 +11,6 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Union, Iterator, Callable
 
-from pymongo import UpdateOne
 from monty.io import zopen
 from maggma.core import StoreError, Sort
 from maggma.stores.mongolike import MemoryStore, JSONStore
@@ -205,7 +204,7 @@ class FileStore(MemoryStore):
 
     def _create_record_from_file(self, f: Union[str, Path]) -> Dict:
         """
-        Given the path to a file, return a Dict that constitues a record of
+        Given the path to a file, return a Dict that constitutes a record of
         basic information about that file. The keys in the returned dict
         are:
 
@@ -288,7 +287,6 @@ class FileStore(MemoryStore):
             )
 
         # merge metadata with file data and check for orphaned metadata
-        requests = []
         found_orphans = False
         key = self.key
         file_ids = self.distinct(self.key)
@@ -304,15 +302,17 @@ class FileStore(MemoryStore):
 
             del d["_id"]
 
-            requests.append(UpdateOne(search_doc, {"$set": d}, upsert=True))
+            self._collection.replace_one(search_doc, d, upsert=True)
+
+            # requests.append(UpdateOne(search_doc, {"$set": d}, upsert=True))
 
         if found_orphans:
             warnings.warn(
                 f"Orphaned metadata was found in {self.json_name}. This metadata"
                 "will be added to the store with {'orphan': True}"
             )
-        if len(requests) > 0:
-            self._collection.bulk_write(requests, ordered=False)
+        # if len(requests) > 0:
+        #     self._collection.bulk_write(requests, ordered=False)
 
     def update(self, docs: Union[List[Dict], Dict], key: Union[List, str, None] = None):
         """

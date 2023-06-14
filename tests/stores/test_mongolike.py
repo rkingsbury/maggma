@@ -5,7 +5,6 @@ from datetime import datetime
 from unittest import mock
 from pathlib import Path
 
-import mongomock.collection
 from monty.tempfile import ScratchDir
 import pymongo.collection
 import pytest
@@ -256,7 +255,10 @@ def test_memory_store_connect():
     memorystore = MemoryStore()
     assert memorystore._coll is None
     memorystore.connect()
-    assert isinstance(memorystore._collection, mongomock.collection.Collection)
+    # assert isinstance(memorystore._collection, mongomock.collection.Collection)
+    import montydb
+
+    assert isinstance(memorystore._collection, montydb.MontyCollection)
 
 
 def test_groupby(memorystore):
@@ -421,10 +423,12 @@ def test_montystore_last_updated(montystore):
 def test_json_store_load(jsonstore, test_dir):
     jsonstore.connect()
     assert len(list(jsonstore.query())) == 20
+    assert jsonstore.count() == 20
 
     jsonstore = JSONStore(test_dir / "test_set" / "c.json.gz")
     jsonstore.connect()
     assert len(list(jsonstore.query())) == 20
+    assert jsonstore.count() == 20
 
     # confirm descriptive error raised if you get a KeyError
     with pytest.raises(KeyError, match="Key field 'random_key' not found"):
@@ -502,7 +506,7 @@ def test_json_store_writeable(test_dir):
             update_json_file_mock.assert_not_called()
 
 
-def test_jsonstore_orjson_options(test_dir):
+def test_json_store_orjson_options(test_dir):
     class SubFloat(float):
         pass
 
@@ -524,7 +528,7 @@ def test_jsonstore_orjson_options(test_dir):
         jsonstore.close()
 
 
-def test_jsonstore_last_updated(test_dir):
+def test_json_store_last_updated(test_dir):
     # files = []
     # for f in ["a.json", "b.json"]:
     #     files.append(test_dir / "test_set" / f)

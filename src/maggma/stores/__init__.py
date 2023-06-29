@@ -9,6 +9,7 @@ from maggma.stores.advanced_stores import (
 from maggma.stores.aws import S3Store
 from maggma.stores.azure import AzureBlobStore
 from maggma.stores.compound_stores import ConcatStore, JointStore
+from maggma.stores.file_store import FileStore
 from maggma.stores.gridfs import GridFSStore
 from maggma.stores.mongolike import (
     JSONStore,
@@ -17,4 +18,22 @@ from maggma.stores.mongolike import (
     MongoURIStore,
     MontyStore,
 )
-from maggma.stores.file_store import FileStore
+
+__all__ = [
+    "Store",
+    "AliasingStore",
+    "MongograntStore",
+    "SandboxStore",
+    "VaultStore",
+    "S3Store",
+    "AzureBlobStore",
+    "MontyStore",
+    "FileStore",
+    "ConcatStore",
+    "JointStore",
+    "GridFSStore",
+    "JSONStore",
+    "MemoryStore",
+    "MongoStore",
+    "MongoURIStore",
+]

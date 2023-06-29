@@ -8,7 +8,7 @@ import zlib
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from hashlib import sha1
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union, Any
 from json import dumps
 
 import msgpack  # type: ignore
@@ -77,8 +77,8 @@ class S3Store(Store):
         self.compress = compress
         self.endpoint_url = endpoint_url
         self.sub_dir = sub_dir.strip("/") + "/" if sub_dir else ""
-        self.s3 = None  # type: Any
-        self.s3_bucket = None  # type: Any
+        self.s3: Any = None
+        self.s3_bucket: Any = None
         self.s3_workers = s3_workers
         self.s3_resource_kwargs = (
             s3_resource_kwargs if s3_resource_kwargs is not None else {}
@@ -227,7 +227,6 @@ class S3Store(Store):
 
     @staticmethod
     def _unpack(data: bytes, compressed: bool):
-
         if compressed:
             data = zlib.decompress(data)
         # requires msgpack-python to be installed to fix string encoding problem
@@ -289,7 +288,7 @@ class S3Store(Store):
 
     def ensure_index(self, key: str, unique: bool = False) -> bool:
         """
-        Tries to create an index and return true if it suceeded
+        Tries to create an index and return true if it succeeded
 
         Args:
             key: single key to index

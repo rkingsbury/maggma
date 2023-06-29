@@ -1,7 +1,7 @@
 """ Special stores that combine underlying Stores together """
 from datetime import datetime
 from itertools import groupby
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union, Any
 
 from pydash import set_
 from pymongo import MongoClient
@@ -48,7 +48,7 @@ class JointStore(Store):
         self.port = port
         self.username = username
         self.password = password
-        self._coll = None  # type: Any
+        self._coll: Any = None
         self.main = main or collection_names[0]
         self.merge_at_root = merge_at_root
         self.mongoclient_kwargs = mongoclient_kwargs or {}
@@ -99,7 +99,9 @@ class JointStore(Store):
     def _collection(self):
         """Property referring to the root pymongo collection"""
         if self._coll is None:
-            raise StoreError("Must connect Mongo-like store before attemping to use it")
+            raise StoreError(
+                "Must connect Mongo-like store before attempting to use it"
+            )
         return self._coll
 
     @property
@@ -265,7 +267,7 @@ class JointStore(Store):
         )
         if not isinstance(keys, list):
             keys = [keys]
-        group_id = {}  # type: Dict[str,Any]
+        group_id: Dict[str, Any] = {}
         for key in keys:
             set_(group_id, key, "${}".format(key))
         pipeline.append({"$group": {"_id": group_id, "docs": {"$push": "$$ROOT"}}})
@@ -374,8 +376,8 @@ class ConcatStore(Store):
     def last_updated(self) -> datetime:
         """
         Finds the most recent last_updated across all the stores.
-        This might not be the most usefull way to do this for this type of Store
-        since it could very easily over-estimate the last_updated based on what stores
+        This might not be the most useful way to do this for this type of Store
+        since it could very easily over-estimate the last_updated based on what Stores
         are used
         """
         lus = []

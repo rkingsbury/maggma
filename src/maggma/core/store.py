@@ -7,7 +7,7 @@ import logging
 from abc import ABCMeta, abstractmethod, abstractproperty
 from datetime import datetime
 from enum import Enum
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Optional, Tuple, Union, Callable
 
 from monty.dev import deprecated
 from monty.json import MontyDecoder, MSONable
@@ -55,11 +55,11 @@ class Store(MSONable, metaclass=ABCMeta):
         self.key = key
         self.last_updated_field = last_updated_field
         self.last_updated_type = last_updated_type
-        self._lu_func = (
+        self._lu_func: Tuple[Callable, Callable] = (
             LU_KEY_ISOFORMAT
             if DateTimeFormat(last_updated_type) == DateTimeFormat.IsoFormat
             else (identity, identity)
-        )  # type: Tuple[Callable, Callable]
+        )
         self.validator = validator
         self.logger = logging.getLogger(type(self).__name__)
         self.logger.addHandler(logging.NullHandler())
@@ -137,7 +137,7 @@ class Store(MSONable, metaclass=ABCMeta):
     @abstractmethod
     def ensure_index(self, key: str, unique: bool = False) -> bool:
         """
-        Tries to create an index and return true if it suceeded
+        Tries to create an index and return true if it succeeded
 
         Args:
             key: single key to index

@@ -1,0 +1,15 @@
+# Never enforce `E471`
+ignore = ["E741"]
+
+# Set max line length
+line-length = 120
+
+# don't autofix unused imports in __init__.py
+ignore-init-module-imports = true
+
+# exclude some files
+exclude = [
+    ".git",
+    "__pycache__",
+    "docs",
+]

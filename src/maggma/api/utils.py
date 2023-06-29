@@ -19,14 +19,21 @@ else:
 QUERY_PARAMS = ["criteria", "properties", "skip", "limit"]
 STORE_PARAMS = Dict[
     Literal[
-        "criteria", "properties", "sort", "skip", "limit", "request", "pipeline", "hint"
+        "criteria",
+        "properties",
+        "sort",
+        "skip",
+        "limit",
+        "request",
+        "pipeline",
+        "hint",
+        "update",
     ],
     Any,
 ]
 
 
 def merge_queries(queries: List[STORE_PARAMS]) -> STORE_PARAMS:
-
     criteria: STORE_PARAMS = {}
     properties: List[str] = []
 
@@ -102,11 +109,11 @@ def api_sanitize(
         fields_to_leave: list of strings for model fields as "model__name__.field"
     """
 
-    models = [
+    models: List[Type[BaseModel]] = [
         model
         for model in get_flat_models_from_model(pydantic_model)
         if issubclass(model, BaseModel)
-    ]  # type: List[Type[BaseModel]]
+    ]
 
     fields_to_leave = fields_to_leave or []
     fields_tuples = [f.split(".") for f in fields_to_leave]

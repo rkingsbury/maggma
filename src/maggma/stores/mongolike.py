@@ -26,9 +26,9 @@ from maggma.core import Sort, Store, StoreError
 from maggma.utils import confirm_field_index, to_dt
 
 try:
-    import montydb  # type: ignore
+    from montydb import set_storage, MontyClient  # type: ignore
 except ImportError:
-    montydb = None
+    MontyClient = None
 
 
 class SSHTunnel(MSONable):
@@ -614,6 +614,11 @@ class MontyStore(MongoStore):
     See the MontyDB repository for more information: https://github.com/davidlatwe/montydb
     """
 
+    @requires(
+        MontyClient,
+        "MontyStore requires MontyDB to be installed. See the MontyDB repository for more "
+        "information: https://github.com/davidlatwe/montydb",
+    )
     def __init__(
         self,
         collection_name,
@@ -650,8 +655,8 @@ class MontyStore(MongoStore):
         self.kwargs = kwargs
         self.storage = storage
         self.storage_kwargs = storage_kwargs or {
-            "use_bson": True,
-            "monty_version": "4.0",
+            "use_bson": True,  # import pymongo's BSON; do not use montydb's
+            "mongo_version": "4.0",
         }
         self.client_kwargs = client_kwargs or {}
         super(MongoStore, self).__init__(**kwargs)  # noqa
@@ -663,9 +668,9 @@ class MontyStore(MongoStore):
         Args:
             force_reset: Force connection reset.
         """
-        from montydb import set_storage, MontyClient  # type: ignore
-
-        set_storage(self.database_path, storage=self.storage, **self.storage_kwargs)
+        if self.database_path != ":memory:":  # TODO - workaround, may be obviated by
+            # a future montydb update
+            set_storage(self.database_path, storage=self.storage, **self.storage_kwargs)
         client = MontyClient(self.database_path, **self.client_kwargs)
         if not self._coll or force_reset:
             self._coll = client["db"][self.collection_name]
@@ -824,17 +829,7 @@ class MemoryStore(MontyStore):
                 constructor.
             **kwargs: Additional keyword arguments passed to the Store constructor.
         """
-        super().__init__(collection_name, storage="memory", **kwargs)  # noqa
-
-    def connect(self, force_reset: bool = False):
-        """
-        Connect to the source data
-        """
-        from montydb import MontyClient  # type: ignore
-
-        client = MontyClient(":memory:")
-        if not self._coll or force_reset:
-            self._coll = client["db"][self.collection_name]
+        super().__init__(collection_name, database_path=":memory:", **kwargs)  # noqa
 
     @property
     def name(self):
@@ -1022,11 +1017,6 @@ class JSONStore(MemoryStore):
         return all(getattr(self, f) == getattr(other, f) for f in fields)
 
 
-@requires(
-    montydb,
-    "MontyStore requires MontyDB to be installed. See the MontyDB repository for more "
-    "information: https://github.com/davidlatwe/montydb",
-)
 def _find_free_port(address="0.0.0.0"):
     s = socket()
     s.bind((address, 0))  # Bind to a free port provided by the host.

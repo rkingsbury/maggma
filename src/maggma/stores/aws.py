@@ -227,7 +227,6 @@ class S3Store(Store):
 
     @staticmethod
     def _unpack(data: bytes, compressed: bool):
-
         if compressed:
             data = zlib.decompress(data)
         # requires msgpack-python to be installed to fix string encoding problem
@@ -289,7 +288,7 @@ class S3Store(Store):
 
     def ensure_index(self, key: str, unique: bool = False) -> bool:
         """
-        Tries to create an index and return true if it suceeded
+        Tries to create an index and return true if it succeeded
 
         Args:
             key: single key to index

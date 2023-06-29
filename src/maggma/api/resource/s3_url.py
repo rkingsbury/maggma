@@ -69,11 +69,13 @@ class S3URLResource(Resource):
             request: Request,
             temp_response: Response,
             key: str = Path(
-                ..., alias=key_name, title=f"The {key_name} of the {model_name} to get",
+                ...,
+                alias=key_name,
+                title=f"The {key_name} of the {model_name} to get",
             ),
         ):
             f"""
-            Get's a document by the primary key in the store
+            Gets a document by the primary key in the store
 
             Args:
                 {key_name}: the id of a single {model_name}

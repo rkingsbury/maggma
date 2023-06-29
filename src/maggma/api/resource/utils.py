@@ -44,9 +44,11 @@ def generate_query_pipeline(query: dict, store: Store):
     sorting = query.get("sort", False)
 
     if sorting:
-        sort_dict:dict = {"$sort": {}}
+        sort_dict: dict = {"$sort": {}}
         sort_dict["$sort"].update(query["sort"])
-        sort_dict["$sort"].update({store.key: 1})  # Ensures sort by key is last in dict to fix determinacy
+        sort_dict["$sort"].update(
+            {store.key: 1}
+        )  # Ensures sort by key is last in dict to fix determinacy
 
     projection_dict = {"_id": 0}  # Do not return _id by default
 

@@ -306,7 +306,7 @@ class AzureBlobStore(Store):
 
     def ensure_index(self, key: str, unique: bool = False) -> bool:
         """
-        Tries to create an index and return true if it suceeded
+        Tries to create an index and return true if it succeeded
 
         Args:
             key: single key to index

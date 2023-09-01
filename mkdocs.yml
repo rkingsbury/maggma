@@ -47,6 +47,6 @@ plugins:
   - search
   - minify
   - mkdocstrings
-      handlers: 
-        python: 
-          paths: [src]
+    handlers: 
+      python: 
+        paths: [src]

@@ -47,3 +47,7 @@ plugins:
   - search
   - minify
   - mkdocstrings
+      default_handler: python
+          handlers:
+            python:
+              paths: [src]

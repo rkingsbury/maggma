@@ -46,7 +46,7 @@ markdown_extensions:
 plugins:
   - search
   - minify
-  - mkdocstrings
-    handlers: 
-      python: 
-        paths: [src]
+  - mkdocstrings:
+      handlers: 
+        python: 
+          paths: [src]

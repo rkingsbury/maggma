@@ -51,6 +51,7 @@ click==8.1.7
     # via
     #   flask
     #   mongogrant
+    #   uvicorn
 coverage[toml]==7.3.0
     # via pytest-cov
 cryptography==41.0.3
@@ -79,7 +80,9 @@ fastjsonschema==2.18.0
 flask==2.3.3
     # via mongogrant
 h11==0.14.0
-    # via httpcore
+    # via
+    #   httpcore
+    #   uvicorn
 httpcore==0.17.3
     # via httpx
 httpx==0.24.1
@@ -269,10 +272,13 @@ typing-extensions==4.7.1
     #   fastapi
     #   pydantic
     #   pydash
+    #   uvicorn
 urllib3==1.26.16
     # via
     #   botocore
     #   requests
+uvicorn==0.23.2
+    # via maggma (setup.py)
 wcwidth==0.2.6
     # via prompt-toolkit
 werkzeug==2.3.7

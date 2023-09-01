@@ -65,7 +65,9 @@ click==8.1.7
     #   mongogrant
     #   uvicorn
 colorama==0.4.6
-    # via mkdocs-material
+    # via
+    #   griffe
+    #   mkdocs-material
 coverage[toml]==7.3.0
     # via pytest-cov
 cryptography==41.0.3
@@ -107,6 +109,8 @@ flask==2.3.3
     # via mongogrant
 ghp-import==2.1.0
     # via mkdocs
+griffe==0.35.2
+    # via mkdocstrings-python
 h11==0.14.0
     # via
     #   httpcore
@@ -212,8 +216,12 @@ mkdocs-material-extensions==1.1.1
     # via mkdocs-material
 mkdocs-minify-plugin==0.7.1
     # via maggma (setup.py)
-mkdocstrings==0.22.0
-    # via maggma (setup.py)
+mkdocstrings[python]==0.22.0
+    # via
+    #   maggma (setup.py)
+    #   mkdocstrings-python
+mkdocstrings-python==1.6.0
+    # via mkdocstrings
 mongogrant==0.3.3
     # via maggma (setup.py)
 mongomock==4.1.2
@@ -332,7 +340,6 @@ pyyaml==6.0.1
     #   pre-commit
     #   pymdown-extensions
     #   pyyaml-env-tag
-    #   responses
     #   starlette
 pyyaml-env-tag==0.1
     # via mkdocs
@@ -357,7 +364,7 @@ requests==2.31.0
     #   moto
     #   msal
     #   responses
-responses==0.23.3
+responses==0.21.0
     # via
     #   maggma (setup.py)
     #   moto
@@ -413,9 +420,7 @@ traitlets==5.9.0
 types-python-dateutil==2.8.19.14
     # via maggma (setup.py)
 types-pyyaml==6.0.12.11
-    # via
-    #   maggma (setup.py)
-    #   responses
+    # via maggma (setup.py)
 types-setuptools==68.1.0.1
     # via maggma (setup.py)
 typing-extensions==4.7.1

@@ -57,7 +57,6 @@ Package = "https://pypi.org/project/maggma"
 mrun = "maggma.cli:run"
 
 [project.optional-dependencies]
-vasp = ["pymatgen"]
 vault = ["hvac>=0.9.5"]
 memray = ["memray>=1.7.0"]
 montydb = ["montydb>=2.3.12"]
